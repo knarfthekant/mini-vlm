@@ -26,6 +26,7 @@ def get_tokenizer(name, extra_special_tokens: dict[str, str] = None, chat_templa
             tokenizer.pad_token = tokenizer.eos_token
         
         TOKENIZERS_CACHE[name] = tokenizer
+        print("Initialized tokenizer: ", name)
     return TOKENIZERS_CACHE[name]
-            
+  
         

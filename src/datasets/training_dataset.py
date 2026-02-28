@@ -1,14 +1,14 @@
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-# from data.processors import get_image_string
+from data.processors import get_image_string
 from datasets import DatasetDict
 import logging
 
 class TrainingDataset(Dataset):
     def __init__(
         self, 
-        dataset: DatasetDict, 
+        dataset: Dataset,
         tokenizer, 
         image_processor, 
         image_token_length, # number of visual tokens per image patch

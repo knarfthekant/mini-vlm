@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoConfig
 from typing import Optional
 
-class LanguageModel(nn.Module):
+class LM(nn.Module):
     def __init__(self, config: Optional[AutoConfig] = None, hf_model_name: str = "Qwen/Qwen3-0.6B"):
         super().__init__()
         if config:

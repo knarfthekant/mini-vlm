@@ -1,6 +1,10 @@
 from src.datasets.training_dataset import TrainingDataset
 
 class VQADataset(TrainingDataset):
+    def iter_for_worker(self):
+        for data in self.dataset:
+            yield self._process_data(data)
+
     def __getitem__(self, index):
         item = self.dataset[idx]
         return self._process_data(item)

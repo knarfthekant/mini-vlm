@@ -26,20 +26,37 @@
 "r7c1": "<row_7_col_1>", "r7c2": "<row_7_col_2>", "r7c3": "<row_7_col_3>", "r7c4": "<row_7_col_4>", "r7c5": "<row_7_col_5>", "r7c6": "<row_7_col_6>", "r7c7": "<row_7_col_7>", "r7c8": "<row_7_col_8>",
 "r8c1": "<row_8_col_1>", "r8c2": "<row_8_col_2>", "r8c3": "<row_8_col_3>", "r8c4": "<row_8_col_4>", "r8c5": "<row_8_col_5>", "r8c6": "<row_8_col_6>", "r8c7": "<row_8_col_7>", "r8c8": "<row_8_col_8>"}
 ```
-
+##### Modality Projector
+- Using **pixel_shuffle** algorithm to losslessly compress image tokens into fewer tokens with more features
 ##### Interleaved Multimodal Processing
 - Use placeholder for image tokens
 - The modal swaps out the placeholders for image tokens
 
 # Data pipeline
 ### Dataset
-- Dataset class handles image preprocessing, text tokenization, and data augmentation.
-    - Wraps HuggingFace dataset
-    - Image preprocessing worker
-    - Text tokenization worker
-- Image 
+##### Data Source
+- DatasetDict is a dictionary returned by Hugging face load_dataset that contains multiple datasets, indexed by 'training', 'validation', 'test', ...
+##### Logic Layer
+- TrainingDataset(Dataset) is a pytorch arrow table dataset that handles random access via `dataset[index]`
+    - Handles image preprocessing, text tokenization, and data augmentation.
+```
+Dataset
+  ├── data (Arrow Table)
+  │     ├── column "texts"  -> array/list of length N
+  │     ├── column "images" -> array/list of length N
+  │     ├── column "labels" -> array/list of length N
+  │     └── ...
+  ├── features (schema / types for each column)
+  ├── format / transforms (how to return items: python/numpy/torch, etc.)
+  └── indices / fingerprint (optional indexing + caching metadata)
+```
+##### Optimization Layer
+- ConstantLengthDatasets(IterableDataset) packs samples of similar lengths together to minimize padding.
+- IterableDataset is a pytorch dataset that handles streaming data. It is sequential and it implements iter.
+##### Delivery Layer
+- DataLoader makes data available
 ### Collator
-- Collator handles padding and batching.
+- Collator handles padding and batching, converts the list of python dictionaries into a single pytorch tensor
 ### DataLoader
 - DataLoader handles the logistics of accessing data (wrapper for Dataset).
 ### Data Workers

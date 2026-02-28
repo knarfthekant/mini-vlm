@@ -5,7 +5,7 @@ from transformers import AutoModel
 from transformers import AutoModel, AutoConfig
 from typing import Optional
 
-class VisionTransformer(nn.Module):
+class ViT(nn.Module):
     def __init__(self, config: Optional[AutoConfig] = None, hf_model_name: str = "google/siglip2-base-patch16-512"):
         super().__init__()
         if config:
