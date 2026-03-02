@@ -6,14 +6,14 @@ class VQADataset(TrainingDataset):
             yield self._process_data(data)
 
     def __getitem__(self, index):
-        item = self.dataset[idx]
+        item = self.dataset[index]
         return self._process_data(item)
 
     def _get_labels(self, input_ids, loss_mask):
         """
-        Generate labels for causal language modeling.
+        Generate labels for causal language modeling. Fill loss_mask == 0 with -100 to ignore them in loss calculation.
         """
-        labels = input_ids.clone().masked_fill(~loss_mask, -100)
+        labels = input_ids.clone().masked_fill(loss_mask == 0, -100)
         labels = labels.roll(-1) # shift labels for causal
         labels[-1] = -100
 
@@ -25,20 +25,24 @@ class VQADataset(TrainingDataset):
            images_data = []
         else:
             images_data = item['images']
-            if not isinstance(image_data, list):
-                images_data = [image_data]
+            if not isinstance(images_data, list):
+                images_data = [images_data]
         
         processed_images = []
-        splitted_images_counts = []
+        splitted_image_counts = []
         if images_data:
-            processed_images, splitted_images_counts = self._process_images(images_data)
+            processed_images, splitted_image_counts = self._process_images(images_data)
         
-        messages = self._get_messages(item, splitted_image_counts)
+        messages = self._get_text_messages(item, splitted_image_counts)
 
         if len(messages) == 0:
             return None
         
-        input_ids, loss_mask, attention_mask = self._get_input_ids_and_masks(messages)
+        masks_dict = self._get_input_ids_and_masks(messages)
+        input_ids = masks_dict["input_ids"]
+        loss_mask = masks_dict["loss_mask"]
+        attention_mask = masks_dict["attention_mask"]
+        
         labels = self._get_labels(input_ids, loss_mask)
 
         return  {

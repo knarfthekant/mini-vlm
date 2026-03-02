@@ -1,5 +1,5 @@
 from torchvision import transforms
-from data.custom_transforms import DynamicResize, SplitImage, GlobalAndSplitImages
+from src.datasets.transforms import DynamicResize, SplitImage, GlobalAndSplitImages
 
 def get_image_processor(patch_size, max_side_len, resize_to_max_side_len=False):
     """

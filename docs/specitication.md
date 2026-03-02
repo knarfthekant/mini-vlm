@@ -57,9 +57,60 @@ Dataset
 - DataLoader makes data available
 ### Collator
 - Collator handles padding and batching, converts the list of python dictionaries into a single pytorch tensor
-### DataLoader
-- DataLoader handles the logistics of accessing data (wrapper for Dataset).
 ### Data Workers
+
+# Shapes
+### Image
+##### 0. Configuration Hyperparameters
+Based on `models/config.py`:
+- `vit_img_size`: 512 (The size of a single **Tile** passed to the Vision Transformer)
+- `vit_patch_size`: 16 (The size of each small **Token Patch** inside the ViT)
+- `mp_pixel_shuffle_factor`: 4 (Downsampling/Concentration factor for the modality projector)
+- `mp_image_token_length`: 64 (Final number of tokens per **Tile**)
+- `max_img_size`: 1536 (Maximum side length allowed for the dynamic resize)
+- `vit_hidden_dim`: 768 (Embedding dimension of the ViT)
+- `lm_hidden_dim`: 960 (Embedding dimension of the LLM)
+##### 1. Raw Data Loading
+- **Input**: PIL Image with arbitrary dimensions `(H_raw, W_raw, 3)`.
+##### 2. Image Processing (`data/processors.py` & `data/custom_transforms.py`)
+###### A. Dynamic Resize (`DynamicResize`)
+The image is resized to fit within `max_img_size` while maintaining aspect ratio and ensuring dimensions are divisible by the Tile size (512).
+- **Output Shape**: `(new_H, new_W, 3)` where both `new_H` and `new_W` are multiples of 512.
+###### B. Tensor Conversion (`ToTensor`)
+- **Output Shape**: `(3, new_H, new_W)` (Values normalized to [0, 1]).
+###### C. Tiling (`GlobalAndSplitImages`)
+To handle high-resolution images, the project "tiles" the resized image into square **Tiles** of size `(512, 512)`.
+- **Logic**:
+  - `n_h = new_H // 512`
+  - `n_w = new_W // 512`
+  - Total local Tiles: `N = n_h * n_w`
+  - If `N > 1`: A "global Tile" is created by resizing the entire `(new_H, new_W)` image down to `(512, 512)`.
+- **Output Shape**: 
+  - If `N = 1`: `(1, 3, 512, 512)` (Only one Tile)
+  - If `N > 1`: `(1 + N, 3, 512, 512)` (The first element is the global overview Tile).
+##### 3. Model Forward Pass (`models/vision_language_model.py`)
+###### A. Batch Processing (`_process_images`)
+All Tiles from all images in the batch are flattened into a single sequence.
+- **Output Shape**: `(B_total_tiles, 3, 512, 512)`
+###### B. Vision Encoder (`ViT`)
+The Vision Transformer processes each `(512, 512)` Tile and splits it into small **Token Patches**.
+- **Token Patching**: 
+  - Each Tile is divided into `16x16` patches.
+  - `(512 / 16) * (512 / 16) = 32 * 32 = 1024` tokens per Tile.
+- **Output Shape**: `(B_total_tiles, 1024, 768)`.
+###### C. Modality Projector (`ModalityProjector`)
+The projector applies "Pixel Shuffle" to concentrate the `32x32` grid of tokens into a smaller `8x8` grid, increasing the features per position.
+- **Pixel Shuffle (factor 4)**:
+  - Reshape: `(B_total_tiles, 32, 32, 768)`
+  - Rearrange: `(B_total_tiles, 32/4, 32/4, 768 * 4 * 4) = (B_total_tiles, 8, 8, 12288)`
+  - Flatten spatial: `(B_total_tiles, 64, 12288)`
+- **Linear Projection**:
+  - `nn.Linear(12288, 960)`
+- **Output Shape**: `(B_total_tiles, 64, 960)`.
+  - Note: `64` is the final `mp_image_token_length` for each Tile.
+###### D. Token Replacement (`_replace_img_tokens_with_embd`)
+The LLM text includes `64` copies of the `<|image|>` token for every Tile. These placeholders are replaced by the embeddings generated above.
+- **Final Input to LLM**: `(Batch, Seq_Len, 960)`.
 
 # Training
 

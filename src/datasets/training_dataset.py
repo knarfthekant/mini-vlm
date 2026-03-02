@@ -1,7 +1,7 @@
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from data.processors import get_image_string
+from src.datasets.processor import get_image_string
 from datasets import DatasetDict
 import logging
 
@@ -67,6 +67,7 @@ class TrainingDataset(Dataset):
                 logging.warning(f"Found and removed an image token in the {msg['role']} text before adding the image string.")
                 msg["content"] = msg["content"].replace(self.tokenizer.image_token, "")
         
+        # Important step: Append image string before text messages
         if len(splitted_image_counts) > 0:
             image_string = get_image_string(self.tokenizer, splitted_image_counts, self.image_token_length)
             messages[0]["content"] = image_string + messages[0]["content"]
@@ -77,6 +78,7 @@ class TrainingDataset(Dataset):
         """
         Generates the loss mask, the attention mask and the input ids.
         """
+        # Convert tokenized messages to input token ids and attention mask
         conversation_ids = self.tokenizer.apply_chat_template(
             messages,
             tokenize=True,

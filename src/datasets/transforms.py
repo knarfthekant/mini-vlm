@@ -50,7 +50,6 @@ class DynamicResize(torch.nn.Module):
             new_h, new_w = self._get_constrained_size(h, w)
             return resize(img, [new_h, new_w], interpolation=self.interpolation)
 
-
         # Handles torch.Tensor inputs
         if not torch.is_tensor(img):
             raise TypeError(

@@ -8,7 +8,7 @@ class ModalityProjector(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.input_size = cfg.hidden_size * (cfg.pixel_shuffle_factor ** 2)
+        self.input_size = cfg.vit_hidden_size * (cfg.pixel_shuffle_factor ** 2)
         self.output_size = cfg.lm_hidden_size # connecting ViT to LM
         self.scale_factor = cfg.pixel_shuffle_factor
 

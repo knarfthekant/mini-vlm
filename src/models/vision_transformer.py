@@ -1,17 +1,20 @@
 import torch
 import torch.nn as nn
-from transformers import AutoModel
-
 from transformers import AutoModel, AutoConfig
-from typing import Optional
+from typing import Optional, Union
 
 class ViT(nn.Module):
-    def __init__(self, config: Optional[AutoConfig] = None, hf_model_name: str = "google/siglip2-base-patch16-512"):
+    def __init__(
+        self,
+        config: Optional[Union[AutoConfig, str]] = "google/siglip2-base-patch16-512"
+    ):
         super().__init__()
-        if config:
-            self.model = AutoModel.from_config(config)
+        if isinstance(config, str):
+            # download from hub
+            self.model = AutoModel.from_pretrained(config)
         else:
-            self.model = AutoModel.from_pretrained(hf_model_name)
+            # config is an AutoConfig/PretrainedConfig object
+            self.model = AutoModel.from_config(config)
         
         # Use the vision encoder for feature extraction
         if hasattr(self.model, "vision_model"):
@@ -30,3 +33,6 @@ class ViT(nn.Module):
     @property
     def hidden_size(self):
         return self.vision_model.config.hidden_size
+
+    def gradient_checkpointing_enable(self, **kwargs):
+        self.model.gradient_checkpointing_enable(**kwargs)

@@ -5,16 +5,16 @@ import os
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.models.vision_transformer import VisionTransformer
-from configs.model.VITConfig import VITConfig
+from src.models.vision_transformer import ViT
+from configs.model.VLMConfig import VLMConfig
 
 def test_vit():
     print("Testing VisionTransformer initialization...")
-    config = VITConfig()
-    model = VisionTransformer(hf_model_name=config.hf_model_name)
+    config = VLMConfig()
+    model = ViT(config=config.vit_model_name)
     model.eval()
     
-    print(f"Model loaded: {config.hf_model_name}")
+    print(f"Model loaded: {config.vit_model_name}")
     print(f"Hidden size: {model.hidden_size}")
     
     # Create a dummy image tensor (batch_size, channels, height, width)

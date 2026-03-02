@@ -6,17 +6,17 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.models.language_model import LanguageModel
-from configs.model.LMConfig import LMConfig
+from configs.model.VLMConfig import VLMConfig
 
 def test_lm():
     print("Testing LanguageModel initialization...")
-    config = LMConfig()
+    config = VLMConfig()
     # Using a smaller model for quicker verification if possible, but the user asked for Qwen3-0.6B
     # We will try to load the requested model.
-    model = LanguageModel(hf_model_name=config.hf_model_name)
+    model = LanguageModel(config=config.lm_model_name)
     model.eval()
     
-    print(f"Model loaded: {config.hf_model_name}")
+    print(f"Model loaded: {config.lm_model_name}")
     print(f"Hidden size: {model.hidden_size}")
     
     # Create a dummy input tensor (batch_size, sequence_length)
@@ -25,6 +25,10 @@ def test_lm():
     print("Running forward pass...")
     with torch.no_grad():
         output = model(dummy_input)
+
+    # Test token embedding
+    token_embd = model.token_embedding(dummy_input)
+    print(f"Token embedding shape: {token_embd.shape}")
     
     # Qwen models return a CausalLMOutputWithPast or similar
     logits = output.logits
