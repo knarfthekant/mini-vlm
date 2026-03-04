@@ -1,0 +1,10 @@
+Start a new session for training:
+    tmux new -s training
+    python train.py
+Detach:
+    Ctrl+B, D
+Reattach:
+    tmux attach -t training
+Kill:
+    tmux kill-session -t training
+
