@@ -23,6 +23,7 @@ class DynamicResize(torch.nn.Module):
         assert max_side_len % patch_size == 0, "max_side_len must be divisible by patch_size"
         self.p = int(patch_size)
         self.m = int(max_side_len)
+        self.interpolation = interpolation
         self.r = bool(resize_to_max_side_len)
         print(f"patch_size: {self.p}, max_side_len: {self.m}, resize_to_max_side_len: {self.r}")
  
@@ -102,15 +103,15 @@ class GlobalAndSplitImages(torch.nn.Module):
         self.p = int(patch_size)
         self.splitter = SplitImage(patch_size)
 
-        def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Tuple[int, int]]:
-            if x.ndim == 3:
-                x = x.unsqueeze(0)
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Tuple[int, int]]:
+        if x.ndim == 3:
+            x = x.unsqueeze(0)
 
-            patches, grid = self.splitter(x)
+        patches, grid = self.splitter(x)
 
-            # handles single patch case
-            if grid == (1, 1):
-                return patches, grid
-            
-            global_patch = resize(x, [self.p, self.p])
-            return torch.cat([global_patch, patches], dim=0), grid
+        # handles single patch case
+        if grid == (1, 1):
+            return patches, grid
+        
+        global_patch = resize(x, [self.p, self.p])
+        return torch.cat([global_patch, patches], dim=0), grid

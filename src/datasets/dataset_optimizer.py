@@ -67,28 +67,28 @@ class ConstantLengthDatasets(IterableDataset):
         worker_id = worker_info.id if worker_info else 0
         num_workers = worker_info.num_workers if worker_info else 1
         
-    def make_base_iterator():
-        """Return a (sharded) iterator over the underlying dataset."""
-        if not hasattr(self.dataset.dataset, "__len__"):
-            return self.dataset.iter_for_worker()  # with iterable datasets, each worker gets different shards
-        
-        all_indices = range(len(self.dataset))
+        def make_base_iterator():
+            """Return a (sharded) iterator over the underlying dataset."""
+            if not hasattr(self.dataset.dataset, "__len__"):
+                return self.dataset.iter_for_worker()  # with iterable datasets, each worker gets different shards
+            
+            all_indices = range(len(self.dataset))
 
-        # Shard the *indices* first, before any data is fetched.
-        if num_workers > 1:
-            worker_indices = itertools.islice(
-                all_indices, worker_id, None, num_workers
-            )
-        else:
-            worker_indices = all_indices
+            # Shard the *indices* first, before any data is fetched.
+            if num_workers > 1:
+                worker_indices = itertools.islice(
+                    all_indices, worker_id, None, num_workers
+                )
+            else:
+                worker_indices = all_indices
 
-        # Create an iterator that only calls __getitem__ for the assigned indices.
-        def sharded_item_iterator():
-            for idx in worker_indices:
-                yield self.dataset[idx]
+            # Create an iterator that only calls __getitem__ for the assigned indices.
+            def sharded_item_iterator():
+                for idx in worker_indices:
+                    yield self.dataset[idx]
 
-        return sharded_item_iterator()
-        
+            return sharded_item_iterator()
+            
         for batch_of_batches in self._producer(make_base_iterator):
             for batch in batch_of_batches:
                 yield batch

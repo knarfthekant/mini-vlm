@@ -118,15 +118,19 @@ class VisionLanguageModel(nn.Module):
             token_embd = self._fill_img_tokens(input_ids, token_embd, image_embd)
 
         hidden_states, _ = self.decoder(None, inputs_embeds=token_embd, attention_mask=attention_mask)
-        logits = self.decoder.head(hidden_states)
+        logits = None
         loss = None
         if targets is not None:
             # prevent NaN loss when all targets are masked
             if (targets != -100).sum() == 0:
-                logits_for_zero = self.decoder.head(logits)
-                loss = (logits_for_zero * 0).sum()
+                # Optimized: avoid redundant head application
+                loss = (hidden_states.sum() * 0)
             else:
-                loss = self._chunked_cross_entropy(logits, targets, chunk_size=128)
+                loss = self._chunked_cross_entropy(hidden_states, targets, chunk_size=128)
+        
+        # Only compute full logits if actually needed (e.g., for return or in generate)
+        if not self.training:
+           logits = self.decoder.head(hidden_states)
         
         return logits, loss
 
@@ -144,7 +148,8 @@ class VisionLanguageModel(nn.Module):
             chunk_targets = targets[:, start:end]
 
             with torch.amp.autocast(device_type=hidden_states.device.type, enabled=False):
-                chunk_logits = self.decoder.head(chunk_hidden.float()) # (B, chunk, V)
+                head_dtype = next(self.decoder.head.parameters()).dtype
+                chunk_logits = self.decoder.head(chunk_hidden.to(head_dtype)).float() # (B, chunk, V)
                 chunk_loss = F.cross_entropy(
                     chunk_logits.view(-1, chunk_logits.size(-1)),
                     chunk_targets.view(-1),
@@ -285,7 +290,7 @@ class VisionLanguageModel(nn.Module):
 
         if os.path.exists(repo_id_or_path):
             config_path = os.path.join(repo_id_or_path, "config.json")
-            weights_path = os.pth.join(repo_id_or_path, "model.safetensors")
+            weights_path = os.path.join(repo_id_or_path, "model.safetensors")
 
             if not os.path.exists(config_path):
                 raise ValueError(

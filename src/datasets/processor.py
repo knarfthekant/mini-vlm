@@ -18,7 +18,7 @@ def get_image_processor(splitted_image_size, max_side_len, resize_to_max_side_le
 
 def get_image_string(tokenizer, splitted_image_counts, image_token_length):
     """
-    Generates an string of image tokens for the given tokenizer and image token length.
+    Generates a string of image tokens for the given tokenizer and image token length.
     Args:
         tokenizer: Tokenizer
         splitted_image_counts: List of tuples of (n_h, n_w) of splitted chunks for each image 
@@ -40,6 +40,6 @@ def get_image_string(tokenizer, splitted_image_counts, image_token_length):
 
         for i in range(n_h):
             for j in range(n_w):
-                image_string += getattr(tokenizer, f'r{i+1}c{j+1}') # append spacial (row and column) tokens
+                image_string += getattr(tokenizer, f'r{i+1}c{j+1}') # append spatial (row and column) tokens
                 image_string += tokenizer.image_token * image_token_length # append visual embedding tokens
     return image_string

@@ -47,10 +47,10 @@ def seed_worker(worker_id):
     numpy.random.seed(worker_seed)
     random.seed(worker_seed)
 
-def get_run_name(trin_cfg, vlm_cfg):
+def get_run_name(train_cfg, vlm_cfg):
     batch_size = f"bs{int(train_cfg.batch_size*train_cfg.gradient_accumulation_steps)}"
     max_training_steps = f"mts_{train_cfg.max_training_steps}"
-    learning_rate = f"lr_vision_{train_cfg.lr_vision_backbone}-language_{train_cfg.lr_language_model}-mp_{train_cfg.lr_mp}"
+    learning_rate = f"lr_vision_{train_cfg.lr_vision_backbone}-language_{train_cfg.lr_language_backbone}-mp_{train_cfg.lr_mp}"
     date = time.strftime("%m%d-%H%M%S")
     vit = f"{vlm_cfg.vit_model_name.split('/')[-1]}" + f"_{vlm_cfg.max_img_size}"
     mp = f"mp{vlm_cfg.pixel_shuffle_factor}"
@@ -249,7 +249,7 @@ def train(train_cfg, vlm_cfg):
             p.requires_grad = False
 
     optimizer = optim.AdamW(param_groups, weight_decay=0.01)
-    all_params = [p for group in optimizer.param_groups for p in groups['params']]
+    all_params = [p for group in optimizer.param_groups for p in group['params']]
 
     device = (
         torch.device("cuda") if torch.cuda.is_available()
@@ -303,196 +303,196 @@ def train(train_cfg, vlm_cfg):
             
             context = contextlib.nullcontext()
         
-        fw_bw_start = time.time()
-        autocast_context = torch.autocast(
-            device_type=device.type,
-            dtype=torch.bfloat16 if device.type in ['cuda', 'cpu'] else torch.float16
-        )
+            fw_bw_start = time.time()
+            autocast_context = torch.autocast(
+                device_type=device.type,
+                dtype=torch.bfloat16 if device.type in ['cuda', 'cpu'] else torch.float16
+            )
 
-        # Context for precision
-        with autocast_context:
-            with context:
-                _, loss = model(
-                    input_ids,
-                    images,
-                    attention_mask=attention_mask,
-                    targets=labels
-                )
+            # Context for precision
+            with autocast_context:
+                with context:
+                    _, loss = model(
+                        input_ids,
+                        images,
+                        attention_mask=attention_mask,
+                        targets=labels
+                    )
 
-        if train_cfg.gradient_accumulation_steps > 1:
-            loss = loss / train_cfg.gradient_accumulation_steps
-        
-        # compute gradients
-        loss.backward()
-
-        fw_bw_time = time.time() - fw_bw_start
-        post_process_start = time.time()
-
-        # Update model parameters
-        if is_update_step:
-            if train_cfg.max_grad_norm is not None:
-                grad_norm = torch.nn.utils.clip_grad_norm_(all_params, max_norm=train_cfg.max_grad_norm)
+            if train_cfg.gradient_accumulation_steps > 1:
+                loss = loss / train_cfg.gradient_accumulation_steps
             
-            param_group_idx = 0
-            if train_cfg.lr_mp > 0:
-                adj_lr_mp = get_lr(global_step, train_cfg.lr_mp, train_cfg.max_training_steps)
-                optimizer.param_groups[param_group_idx]['lr'] = adj_lr_mp
-                param_group_idx += 1
+            # compute gradients
+            loss.backward()
+
+            fw_bw_time = time.time() - fw_bw_start
+            post_process_start = time.time()
+
+            # Update model parameters
+            if is_update_step:
+                if train_cfg.max_grad_norm is not None:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(all_params, max_norm=train_cfg.max_grad_norm)
+                
+                param_group_idx = 0
+                if train_cfg.lr_mp > 0:
+                    adj_lr_mp = get_lr(global_step, train_cfg.lr_mp, train_cfg.max_training_steps)
+                    optimizer.param_groups[param_group_idx]['lr'] = adj_lr_mp
+                    param_group_idx += 1
+                
+                if train_cfg.lr_vision_backbone > 0:
+                    adj_lr_vision_backbone = get_lr(global_step, train_cfg.lr_vision_backbone, train_cfg.max_training_steps)
+                    optimizer.param_groups[param_group_idx]['lr'] = adj_lr_vision_backbone
+                    param_group_idx += 1
+
+                if train_cfg.lr_language_backbone > 0:
+                    adj_lr_language_backbone = get_lr(global_step, train_cfg.lr_language_backbone, train_cfg.max_training_steps)
+                    optimizer.param_groups[param_group_idx]['lr'] = adj_lr_language_backbone
+                
+                # updates model parameter using gradients
+                optimizer.step()
+                optimizer.zero_grad()
+
+            batch_loss = loss.item()
+            if train_cfg.gradient_accumulation_steps > 1:
+                batch_loss = batch_loss * train_cfg.gradient_accumulation_steps
+            total_train_loss += batch_loss
+
+            num_tokens = torch.sum(attention_mask).item()
+            total_tokens_processed += num_tokens
+
+            post_process_time = time.time() - post_process_start
+
+            images_per_sample = [len(image_pack) for image_pack in images]
+            batch_end_time = time.time()
+            batch_duration = batch_end_time - batch_start_time
+            tokens_per_second = num_tokens / batch_duration
             
-            if train_cfg.lr_vision_backbone > 0:
-                adj_lr_vision_backbone = get_lr(global_step, train_cfg.lr_vision_backbone, train_cfg.max_training_steps)
-                optimizer.param_groups[param_group_idx]['lr'] = adj_lr_vision_backbone
-                param_group_idx += 1
+            accumulated_stats['tokens_per_second'].append(tokens_per_second)
+            accumulated_stats['data_load_time'].append(data_load_time)
+            accumulated_stats['fw_bw_time'].append(fw_bw_time)
+            accumulated_stats['post_process_time'].append(post_process_time)
+            accumulated_stats['images_per_sample'].extend(images_per_sample)
 
-            if train_cfg.lr_language_backbone > 0:
-                adj_lr_language_backbone = get_lr(global_step, train_cfg.lr_language_backbone, train_cfg.max_training_steps)
-                optimizer.param_groups[param_group_idx]['lr'] = adj_lr_language_backbone
-            
-            # updates model parameter using gradients
-            optimizer.step()
-            optimizer.zero_grad()
-
-        batch_loss = loss.item()
-        if train_cfg.gradient_accumulation_steps > 1:
-            batch_loss = batch_loss * train_cfg.gradient_accumulation_steps
-        total_train_loss += batch_loss
-
-        num_tokens = torch.sum(attention_mask).item()
-        total_tokens_processed += num_tokens
-
-        post_process_time = time.time() - post_process_start
-
-        images_per_sample = [len(image_pack) for image_pack in images]
-        batch_end_time = time.time()
-        batch_duration = batch_end_time - batch_start_time
-        tokens_per_second = num_tokens / batch_duration
-        
-        accumulated_stats['tokens_per_second'].append(tokens_per_second)
-        accumulated_stats['data_load_time'].append(data_load_time)
-        accumulated_stats['fw_bw_time'].append(fw_bw_time)
-        accumulated_stats['post_process_time'].append(post_process_time)
-        accumulated_stats['images_per_sample'].extend(images_per_sample)
-
-        if train_cfg.eval_in_epochs and global_step % train_cfg.eval_interval == 0 and is_update_step:
-            print("Starting evaluation")
-            model.eval() # switch to evaluation mode
-            if device == "cuda":
-                torch.cuda.empty_cache()
-            with torch.no_grad():
-                total_val_loss = 0
-                val_batches = 0
-                for batch in synchronized_dataloader_step(iter_val_loader, False):
-                    if val_batches > 64:
-                        print(f"Evaluated {val_batches} batches")
-                        break
-                    images = batch['images']
-                    input_ids = batch['input_ids'].to(device)
-                    labels = batch['labels'].to(device)
-                    attention_mask = batch['attention_mask'].to(device)
+            if train_cfg.eval_in_epochs and global_step % train_cfg.eval_interval == 0 and is_update_step:
+                print("Starting evaluation")
+                model.eval() # switch to evaluation mode
+                if device == "cuda":
+                    torch.cuda.empty_cache()
+                with torch.no_grad():
+                    total_val_loss = 0
+                    val_batches = 0
+                    for batch in synchronized_dataloader_step(iter_val_loader, False):
+                        if val_batches > 64:
+                            print(f"Evaluated {val_batches} batches")
+                            break
+                        images = batch['images']
+                        input_ids = batch['input_ids'].to(device)
+                        labels = batch['labels'].to(device)
+                        attention_mask = batch['attention_mask'].to(device)
+                        
+                        with autocast_context:
+                            _, loss = model(
+                                input_ids,
+                                images,
+                                attention_mask=attention_mask,
+                                targets=labels
+                            )
+                        
+                        total_val_loss += loss.item()
+                        val_batches += 1
                     
-                    with autocast_context:
-                        _, loss = model(
-                            input_ids,
-                            images,
-                            attention_mask=attention_mask,
-                            targets=labels
-                        )
+                    iter_val_loader = iter(val_loader)
+                    avg_val_loss = total_val_loss / val_batches if val_batches > 0 else 0
                     
-                    total_val_loss += loss.item()
-                    val_batches += 1
-                
-                iter_val_loader = iter(val_loader)
-                avg_val_loss = total_val_loss / val_batches if val_batches > 0 else 0
-                
-                # Save checkpoint for the evaluation step
-                checkpoint_path_step = ""
-                checkpoint_path_step = os.path.join(vlm_cfg.vlm_checkpoint_path, run_name, f"step_{global_step}")
-                model.save_pretrained(save_directory=checkpoint_path_step)
-                
-                # lmms eval
-                if train_cfg.use_lmms_eval and global_step % (train_cfg.eval_interval*2) == 0:
-                    cmd = f"sbatch eval.slurm {checkpoint_path_step} {global_step} {run_name} {train_cfg.lmms_eval_limit} {train_cfg.lmms_eval_tasks} {train_cfg.lmms_eval_batch_size}"
-                    print(f"Submitting evaluation job: {cmd}")
-                    subprocess.run(cmd, shell=True)
+                    # Save checkpoint for the evaluation step
+                    checkpoint_path_step = ""
+                    checkpoint_path_step = os.path.join(vlm_cfg.vlm_checkpoint_path, run_name, f"step_{global_step}")
+                    model.save_pretrained(save_directory=checkpoint_path_step)
+                    
+                    # lmms eval
+                    if train_cfg.use_lmms_eval and global_step % (train_cfg.eval_interval*2) == 0:
+                        cmd = f"sbatch eval.slurm {checkpoint_path_step} {global_step} {run_name} {train_cfg.lmms_eval_limit} {train_cfg.lmms_eval_tasks} {train_cfg.lmms_eval_batch_size}"
+                        print(f"Submitting evaluation job: {cmd}")
+                        subprocess.run(cmd, shell=True)
 
-                if avg_val_loss < best_val_loss:
-                    best_val_loss = avg_val_loss
-                    best_model_path = checkpoint_path_step
+                    if avg_val_loss < best_val_loss:
+                        best_val_loss = avg_val_loss
+                        best_model_path = checkpoint_path_step
 
-                print(f"Step: {global_step}, Val Loss: {avg_val_loss:.4f}, Tokens/s: {tokens_per_second:.2f}")
+                    print(f"Step: {global_step}, Val Loss: {avg_val_loss:.4f}, Tokens/s: {tokens_per_second:.2f}")
+                    if train_cfg.log_wandb:
+                        run.log({"val_loss": avg_val_loss}, step=global_step)
+
+                model.train()
+            
+            # Log training stats every N step (ALL RANKS must participate in collective ops)
+            if global_step % train_cfg.stats_log_interval == 0 and len(accumulated_stats['tokens_per_second']) > 0 and is_update_step:
+                stats = {}
+                for key in ['tokens_per_second', 'data_load_time', 'fw_bw_time', 'post_process_time', 'images_per_sample']:
+                    stats[f'avg_{key}'] = mean(accumulated_stats[key])
+                
+                for key in ['data_load_time', 'fw_bw_time', 'post_process_time', 'images_per_sample']:
+                    stats[f'max_{key}'] = max(accumulated_stats[key])
+
+                stats['min_images_per_sample'] = min(accumulated_stats['images_per_sample'])
+
                 if train_cfg.log_wandb:
-                    run.log({"val_loss": avg_val_loss}, step=global_step)
+                    run.log({
+                        **{f"training_stats/{key}": value for key, value in stats.items()}
+                    }, step=global_step)
+                
+                    # Check for and log new llms eval results
+                    eval_results_dir = os.path.join('eval_results', run_name)
+                    if os.path.exists(eval_results_dir):
+                        logged_results_count = 0
+                        for result_file in os.listdir(eval_results_dir):
+                            # Match only files like "step_1234.json" (no extra text)
+                            match = re.fullmatch(r"step_(\d+)\.json", result_file)
+                            if not match:
+                                continue  # skip if the filename has extra text like taskname
 
-            model.train()
-        
-        # Log training stats every N step (ALL RANKS must participate in collective ops)
-        if global_step % train_cfg.stats_log_interval == 0 and len(accumulated_stats['tokens_per_second']) > 0 and is_update_step:
-            stats = {}
-            for key in ['tokens_per_second', 'data_load_time', 'fw_bw_time', 'post_process_time', 'images_per_sample']:
-                stats[f'avg_{key}'] = mean(accumulated_stats[key])
-            
-            for key in ['data_load_time', 'fw_bw_time', 'post_process_time', 'images_per_sample']:
-                stats[f'max_{key}'] = max(accumulated_stats[key])
+                            try:
+                                step = int(match.group(1))
+                                if step not in logged_eval_steps:
+                                    with open(os.path.join(eval_results_dir, result_file), 'r') as f:
+                                        eval_data = json.load(f)
 
-            stats['min_images_per_sample'] = min(accumulated_stats['images_per_sample'])
+                                    lmms_results = eval_data.get('results', {})
+                                    if lmms_results:
+                                        metrics = {f"lmms_eval/{key}": value for key, value in lmms_results.items()}
+                                        metrics[lmms_eval_step] = eval_data['global_step']
+                                        if logged_results_count > 0:
+                                            print(f"Logging more than one lmms-eval result for step {global_step}, try to avoid this.")
+                                        run.log(metrics, step=global_step + logged_results_count)
+                                        logged_results_count += 1
+                                        print(f"Logged lmms-eval results from step {eval_data['global_step']}")
 
-            if train_cfg.log_wandb:
-                run.log({
-                    **{f"training_stats/{key}": value for key, value in stats.items()}
-                }, step=global_step)
-            
-                # Check for and log new llms eval results
-                eval_results_dir = os.path.join('eval_results', run_name)
-                if os.path.exists(eval_results_dir):
-                    logged_results_count = 0
-                    for result_file in os.listdir(eval_results_dir):
-                        # Match only files like "step_1234.json" (no extra text)
-                        match = re.fullmatch(r"step_(\d+)\.json", result_file)
-                        if not match:
-                            continue  # skip if the filename has extra text like taskname
+                                    logged_eval_steps.add(step)
+                            except (ValueError, KeyError, json.JSONDecodeError) as e:
+                                print(f"Warning: Could not process eval result file {result_file}. Error: {e}")
+                                continue
+                
+                # Reset accumulators
+                for key in accumulated_stats:
+                    accumulated_stats[key] = []
 
-                        try:
-                            step = int(match.group(1))
-                            if step not in logged_eval_steps:
-                                with open(os.path.join(eval_results_dir, result_file), 'r') as f:
-                                    eval_data = json.load(f)
+            if is_update_step:                  
+                # Log to wandb
+                if train_cfg.log_wandb:
+                    run.log({
+                        "batch_loss": batch_loss,
+                        **({f"grad_norm": grad_norm} if train_cfg.max_grad_norm is not None else {})
+                    }, step=global_step)
 
-                                lmms_results = eval_data.get('results', {})
-                                if lmms_results:
-                                    metrics = {f"lmms_eval/{key}": value for key, value in lmms_results.items()}
-                                    metrics[lmms_eval_step] = eval_data['global_step']
-                                    if logged_results_count > 0:
-                                        print(f"Logging more than one lmms-eval result for step {global_step}, try to avoid this.")
-                                    run.log(metrics, step=global_step + logged_results_count)
-                                    logged_results_count += 1
-                                    print(f"Logged lmms-eval results from step {eval_data['global_step']}")
-
-                                logged_eval_steps.add(step)
-                        except (ValueError, KeyError, json.JSONDecodeError) as e:
-                            print(f"Warning: Could not process eval result file {result_file}. Error: {e}")
-                            continue
-            
-            # Reset accumulators
-            for key in accumulated_stats:
-                accumulated_stats[key] = []
-
-        if is_update_step:                  
-            # Log to wandb
-            if train_cfg.log_wandb:
-                run.log({
-                    "batch_loss": batch_loss,
-                    **({"grad_norm": grad_norm} if train_cfg.max_grad_norm is not None else {})
-                }, step=global_step)
-
-            
-        if is_update_step:
-            global_step += 1
-            if global_step >= train_cfg.max_training_steps:
-                break
-        data_load_start = time.time()
+                
+            if is_update_step:
+                global_step += 1
+                if global_step >= train_cfg.max_training_steps:
+                    break
+            data_load_start = time.time()
     
     iter_train_loader = iter(train_loader)
-    avg_train_loss = total_train_loss / step
+    avg_train_loss = total_train_loss / (step + 1) if step >= 0 else 0
 
     epoch_end_time = time.time()
     epoch_duration = epoch_end_time - epoch_start_time

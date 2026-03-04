@@ -19,12 +19,12 @@ class TrainConfig:
     gradient_checkpointing: bool = True
     gradient_accumulation_steps: int = 2
     max_grad_norm: float = 1.0
-    compile: bool = True
+    compile: bool = False
 
     # Learning rate
     lr_vision_backbone: float = 1e-5
     lr_language_backbone: float = 1e-5
-    lr_mp: float = 1e-5
+    lr_mp: float = 1e-3
 
     # Rating thresholds
     relevance_min_rating: int = 1
@@ -39,7 +39,7 @@ class TrainConfig:
     # Evaluation
     eval_in_epochs: bool = True
     eval_interval: int = 500
-    stats_log_interval: int = 10
+    stats_log_interval: int = 100
     use_lmms_eval: bool = False
     lmms_eval_limit: float = None
     lmms_eval_tasks: str = 'mmstar,mmmu_val,ocrbench,textvqa_val,docvqa_val,scienceqa,mme,infovqa_val,chartqa'
