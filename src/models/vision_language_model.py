@@ -8,7 +8,7 @@ from src.utils.utils import top_k_top_p_filtering
 from src.models.vision_transformer import ViT
 from src.models.language_model import LanguageModel
 from src.models.modality_projector import ModalityProjector
-from configs.model.VLMConfig import VLMConfig
+from configs.VLMConfig import VLMConfig
 
 from src.datasets.tokenizer import get_tokenizer
 

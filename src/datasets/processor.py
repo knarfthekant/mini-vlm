@@ -1,19 +1,19 @@
 from torchvision import transforms
 from src.datasets.transforms import DynamicResize, SplitImage, GlobalAndSplitImages
 
-def get_image_processor(patch_size, max_side_len, resize_to_max_side_len=False):
+def get_image_processor(splitted_image_size, max_side_len, resize_to_max_side_len=False):
     """
     Args:
-        patch_size: Size of the image patches
+        splitted_image_size: Size of the splitted image
         max_side_len: Maximum size of the long side of the image input
         resize_to_max_side_len: Whether to resize to the maximum side length
     Returns:
         Image processor
     """
     return transforms.Compose([
-        DynamicResize(patch_size, max_side_len, resize_to_max_side_len),
+        DynamicResize(splitted_image_size, max_side_len, resize_to_max_side_len),
         transforms.ToTensor(),
-        GlobalAndSplitImages(patch_size)
+        GlobalAndSplitImages(splitted_image_size)
     ])
 
 def get_image_string(tokenizer, splitted_image_counts, image_token_length):

@@ -19,7 +19,7 @@ class ConstantLengthDatasets(IterableDataset):
         infinite: bool = False,
         max_sample_length: int = 1024,
         seq_length: int = 1024, # fixed total number of tokens that each packed sequence must contain
-        num_of_sequences: int = 1024,
+        num_of_sequences: int = 1024, # number of sequences in buffer used to packing
         queue_size: int = 2,
         max_images_per_example: int = 4,
         max_images_per_knapsack: int = 18
@@ -28,7 +28,7 @@ class ConstantLengthDatasets(IterableDataset):
        self.infinite = infinite
        self.max_sample_length = max_sample_length
        self.seq_length = seq_length
-       self.max_length = seq_length * number_of_sequences
+       self.max_length = seq_length * num_of_sequences
        self.epoch = 0
        self.queue_size = max(queue_size, 1)
        self.max_images_per_example = max_images_per_example

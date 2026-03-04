@@ -12,6 +12,7 @@ class TrainingDataset(Dataset):
         tokenizer, 
         image_processor, 
         image_token_length, # number of visual tokens per image patch
+        *,
         assistant_prefix="<|im_start|>assistant\n",
         assistant_suffix="<|im_end|>",
         relevance_min_rating=1, 
