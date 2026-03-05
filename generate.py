@@ -10,7 +10,6 @@ from src.models.vision_language_model import VisionLanguageModel
 from src.datasets.tokenizer import get_tokenizer
 from src.datasets.processor import get_image_processor, get_image_string
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate text from an image with nanoVLM")
@@ -29,7 +28,6 @@ def parse_args():
     parser.add_argument("--measure_vram", action="store_true",
                         help="Measure and display VRAM usage during model loading and generation")
     return parser.parse_args()
-
 
 def main():
     args = parse_args()
