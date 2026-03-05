@@ -40,6 +40,10 @@ class VisionLanguageModel(nn.Module):
             lm_config = AutoConfig.from_pretrained(cfg.lm_model_name)
             if cfg.lm_config_dict:
                 lm_config.update(cfg.lm_config_dict)
+            # Embed tokens may have been saved as an independent (untied) weight
+            # after resize_token_embeddings() was called during training.
+            # Force untied so safetensors can load it without "unexpected key" errors.
+            lm_config.tie_word_embeddings = False
 
             self.vision_encoder = ViT(vit_config)
             self.decoder = LanguageModel(lm_config)
