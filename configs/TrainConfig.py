@@ -8,16 +8,16 @@ class TrainConfig:
     train_dataset_names: tuple[str, ...] = ("default", )  #('allava_laion', 'allava_vflan', 'cambrian(filtered)_processed', 'LLaVA_Instruct_150K', 'mmevol', 'sharegpt4o', 'sharegpt4v(coco)', 'sharegpt4v(knowledge)', 'sharegpt4v(llava)', 'sharegpt4v(sam)') # 'vision_flan(filtered)', 'lvis_instruct4v',
     stream_dataset: bool = True
     val_size: float = 1000
-    max_sample_length: int = 4096
-    batch_size: int = 1
+    max_sample_length: int = 3072 # 4096 originally
+    batch_size: int = 4 # 1 originally
     max_images_per_example: int = 4
-    max_images_per_knapsack: int = 18
+    max_images_per_knapsack: int = 12 # 18 originally
 
     # Training
     max_training_steps: int = 40000
     resume_from_checkpoint: bool = False
     gradient_checkpointing: bool = True
-    gradient_accumulation_steps: int = 2
+    gradient_accumulation_steps: int = 4 # 2 originally
     max_grad_norm: float = 1.0
     compile: bool = False
 

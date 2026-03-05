@@ -151,8 +151,8 @@ class VisionLanguageModel(nn.Module):
                 head_dtype = next(self.decoder.head.parameters()).dtype
                 chunk_logits = self.decoder.head(chunk_hidden.to(head_dtype)).float() # (B, chunk, V)
                 chunk_loss = F.cross_entropy(
-                    chunk_logits.view(-1, chunk_logits.size(-1)),
-                    chunk_targets.view(-1),
+                    chunk_logits.reshape(-1, chunk_logits.size(-1)),
+                    chunk_targets.reshape(-1),
                     ignore_index=-100,
                     reduction="sum"
                 )
