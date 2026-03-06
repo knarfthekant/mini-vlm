@@ -69,6 +69,29 @@ python run_evaluation.py --checkpoint_path path/to/checkpoint --global_step 0 \
 
 For more architecture and pipeline details, see [`docs/specitication.md`](docs/specitication.md) and [`docs/planning.md`](docs/planning.md).
 
+## Training Summary
+
+The evaluated checkpoint was trained for **3000 steps** (~11 hours) on a single **RTX 5090**.
+
+| Setting | Value |
+|---------|-------|
+| Vision encoder | `google/siglip2-base-patch16-512` |
+| Language model | `Qwen/Qwen3-0.6B` |
+| Modality projector | Pixel-shuffle ×4, 64 tokens/tile |
+| Max image size | 1536px (resize to max side) |
+| Max sequence length | 4096 tokens |
+| Batch size | 16 (4 per device × 4 gradient accumulation steps) |
+| Hardware | 1× NVIDIA RTX 5090 |
+| Training time | ~11 hours |
+| Dataset | [HuggingFaceM4/FineVision](https://huggingface.co/datasets/HuggingFaceM4/FineVision_concat_shuffled_2) |
+
+**Batch loss and validation loss:**
+
+![run2 batch loss](assets/run2_batch_loss.png)
+
+![run2 val loss](assets/run2_val_loss.png)
+
+
 ## Benchmark
 
 MMStar (0-shot) results:
