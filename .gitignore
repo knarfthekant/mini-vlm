@@ -2,3 +2,5 @@ checkpoints
 wandb
 __pycache__
 outputs
+# LMMS-Eval task configs (clone with: git clone https://github.com/EvolvingLMMs-Lab/lmms-eval external/lmms-eval)
+external

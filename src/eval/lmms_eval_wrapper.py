@@ -15,9 +15,10 @@ from lmms_eval import utils
 from lmms_eval.api.model import lmms
 from lmms_eval.api.instance import Instance
 
-from models.vision_language_model import VisionLanguageModel
-from data.processors import get_tokenizer, get_image_processor, get_image_string
-from data.collators import VQACollator
+from src.models.vision_language_model import VisionLanguageModel
+from src.datasets.processor import get_image_processor, get_image_string
+from src.datasets.tokenizer import get_tokenizer
+from src.datasets.collators import VQACollator
 
 
 class NanoVLMWrapper(lmms):
@@ -47,12 +48,12 @@ class NanoVLMWrapper(lmms):
             self._world_size = 1
         
         # Get tokenizer and image processor from model config if not provided
-        self.tokenizer = get_tokenizer(self.model.cfg.lm_tokenizer, self.model.cfg.vlm_extra_tokens, self.model.cfg.lm_chat_template)
+        self.tokenizer = get_tokenizer(self.model.cfg.lm_tokenizer_name, self.model.cfg.vlm_extra_tokens, self.model.cfg.lm_chat_template)
         resize_to_max_side_len = False
         if hasattr(self.model.cfg, "resize_to_max_side_len"):
             resize_to_max_side_len = self.model.cfg.resize_to_max_side_len
         print(f"Resize to max side len: {resize_to_max_side_len}")
-        self.image_processor = get_image_processor(self.model.cfg.max_img_size, self.model.cfg.vit_img_size, resize_to_max_side_len)
+        self.image_processor = get_image_processor(self.model.cfg.vit_image_size, self.model.cfg.max_img_size, self.model.cfg.resize_to_max_side_len)
             
     def _prepare_visual_input(self, visual_list: List[Image.Image]) -> Optional[torch.Tensor]:
         """Convert visual inputs to model format."""
@@ -227,7 +228,7 @@ class NanoVLMWrapper(lmms):
             try:
                 contexts, all_gen_kwargs, doc_to_visual, doc_id, task, split = zip(*chunk)
                 visuals = [dtv(self.task_dict[t][s][i]) for dtv, i, t, s in zip(doc_to_visual, doc_id, task, split)]
-                images, splitted_image_ratio = self._prepare_visual_input(self.flatten(visuals))
+                images, splitted_image_ratios = self._prepare_visual_input(self.flatten(visuals))
             except Exception as e:
                 print(f"Error preparing visual input: {e}")
                 if len(contexts) > 0:
@@ -250,7 +251,7 @@ class NanoVLMWrapper(lmms):
                     image_count = len(visuals[i])
                 image_string = ""
                 for _ in range(image_count):
-                    image_string += get_image_string(self.tokenizer, [splitted_image_ratio[splitted_image_idx]], self.model.cfg.mp_image_token_length)
+                    image_string += get_image_string(self.tokenizer, [splitted_image_ratios[splitted_image_idx]], self.model.cfg.image_token_length)
                     splitted_image_idx += 1
 
                 prompt_content = image_string + current_context_str
@@ -338,7 +339,7 @@ class NanoVLMWrapper(lmms):
     @property
     def max_length(self):
         """Return the maximum sequence length."""
-        return self.model.cfg.lm_max_position_embeddings 
+        return self.model.cfg.lm_max_length 
     
     @property
     def batch_size_per_gpu(self):

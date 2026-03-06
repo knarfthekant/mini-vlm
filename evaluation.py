@@ -282,7 +282,7 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
     if args is None and len(sys.argv) == 1:
         print("┌───────────────────────────────────────────────────────────────────────────────┐")
         print("│ Please provide arguments to evaluate the model. e.g.                          │")
-        print("│ `python evaluate.py --model <checkpoint_path> --tasks mmstar`                 │")
+        print("│ `python evaluation.py --model <checkpoint_path> --tasks mmstar`                 │")
         print("└───────────────────────────────────────────────────────────────────────────────┘")
         sys.exit(1)
 
@@ -360,12 +360,20 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
 
     return results_list
 
+def _get_lmms_eval_tasks_include_path(args: argparse.Namespace):
+    """Include path for task configs (pip package does not ship YAMLs). Default: external/lmms-eval/lmms_eval/tasks."""
+    if getattr(args, "include_path", None) is not None:
+        return args.include_path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, "external", "lmms-eval", "lmms_eval", "tasks")
+
+
 def cli_evaluate_single(args: Union[argparse.Namespace, None] = None) -> None:
     selected_task_list = args.tasks.split(",") if args.tasks else None
 
-    if args.include_path is not None:
-        eval_logger.info(f"Including path: {args.include_path}")
-    task_manager = TaskManager(args.verbosity, include_path=args.include_path, model_name=args.model)
+    include_path = _get_lmms_eval_tasks_include_path(args)
+    eval_logger.info(f"Including task config path: {include_path}")
+    task_manager = TaskManager(args.verbosity, include_path=include_path, model_name=args.model)
 
     # update the evaluation tracker args with the output path and the HF token
     if args.output_path:
@@ -389,26 +397,19 @@ def cli_evaluate_single(args: Union[argparse.Namespace, None] = None) -> None:
     if (args.num_fewshot is None or args.num_fewshot == 0) and args.fewshot_as_multiturn:
         raise ValueError("If fewshot_as_multiturn is set, num_fewshot must be greater than 0.")
 
-    if args.include_path is not None:
-        eval_logger.info(f"Including path: {args.include_path}")
-
     if "push_samples_to_hub" in evaluation_tracker_args and not args.log_samples:
         eval_logger.warning("Pushing samples to the Hub requires --log_samples to be set. Samples will not be pushed to the Hub.")
 
     if args.limit:
         eval_logger.warning(" --limit SHOULD ONLY BE USED FOR TESTING." "REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.")
 
-    if os.environ.get("LMMS_EVAL_PLUGINS", None):
-        args.include_path = [args.include_path] if args.include_path else []
-        for plugin in os.environ["LMMS_EVAL_PLUGINS"].split(","):
-            package_tasks_location = importlib.util.find_spec(f"{plugin}.tasks").submodule_search_locations[0]
-            args.include_path.append(package_tasks_location)
-
     if args.tasks is None:
         eval_logger.error("Need to specify task to evaluate.")
         sys.exit()
     elif args.tasks == "list":
-        eval_logger.info("Available Tasks:\n - {}".format(f"\n - ".join(sorted(task_manager.all_tasks))))
+        if not task_manager.all_tasks:
+            eval_logger.warning("No tasks found. Clone configs: git clone https://github.com/EvolvingLMMs-Lab/lmms-eval external/lmms-eval")
+        eval_logger.info("Available Tasks:\n - {}".format(f"\n - ".join(sorted(task_manager.all_tasks)) if task_manager.all_tasks else " (none)"))
         sys.exit()
     elif args.tasks == "list_groups":
         eval_logger.info(task_manager.list_all_tasks(list_subtasks=False, list_tags=False))
@@ -457,10 +458,10 @@ def cli_evaluate_single(args: Union[argparse.Namespace, None] = None) -> None:
             if task_missing:
                 missing = ", ".join(task_missing)
                 eval_logger.error(
-                    f"Tasks were not found: {missing}\n" f"{utils.SPACING}Try `lmms-eval --tasks list` for list of available tasks",
+                    f"Tasks were not found: {missing}\n{utils.SPACING}Try `python evaluation.py --tasks list`. Clone configs: git clone https://github.com/EvolvingLMMs-Lab/lmms-eval external/lmms-eval"
                 )
                 raise ValueError(
-                    f"Tasks not found: {missing}. Try `lmms-eval --tasks {{list_groups,list_subtasks,list_tags,list}}` to list out all available names for task groupings; only (sub)tasks; tags; or all of the above, or pass '--verbosity DEBUG' to troubleshoot task registration issues."
+                    f"Tasks not found: {missing}. Clone task configs or pass --include_path."
                 )
 
     eval_logger.info(f"Selected Tasks: {task_names}")
