@@ -103,16 +103,16 @@ def parse_eval_args() -> argparse.Namespace:
         "--batch_size",
         "-b",
         type=str,
-        default=128,
+        default=12,
         metavar="auto|auto:N|N",
-        help="Acceptable values are 'auto', 'auto:N' or N, where N is an integer. Default 1.",
+        help="Batch size for evaluation. Use 2-4 on 16GB VRAM (e.g. RTX 5080). Default 4.",
     )
     parser.add_argument(
         "--max_batch_size",
         type=int,
-        default=None,
+        default=32,
         metavar="N",
-        help="Maximal batch size to try with --batch_size auto.",
+        help="Maximal batch size when using --batch_size auto. Use 4-8 on 16GB VRAM.",
     )
     parser.add_argument(
         "--device",
