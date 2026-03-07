@@ -14,7 +14,7 @@ Features:
 
 - Tiled high-resolution support (up to 1536px) with optional global context
 - Interleaved multimodal processing via image token placeholders
-- Token-search for stable image token alignment (avoids BPE drift)
+- Greedy Knapsack packing for efficient tokenization
 - Training with [FineVision](https://huggingface.co/datasets/HuggingFaceM4/FineVision_concat_shuffled_2) and streaming datasets
 
 ## Installation
@@ -87,9 +87,9 @@ The evaluated checkpoint was trained for **4500 steps** (~16 hours) on a single 
 
 **Batch loss and validation loss:**
 
-![run2 batch loss](assets/run2_batch_loss.png)
+![run3 batch loss](assets/run3_batch_loss.png)
 
-![run2 val loss](assets/run2_val_loss.png)
+![run3 val loss](assets/run3_val_loss.png)
 
 
 ## Benchmark
