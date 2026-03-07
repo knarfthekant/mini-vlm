@@ -14,7 +14,7 @@ class TrainConfig:
     max_images_per_knapsack: int = 12 # 18 originally
 
     # Training
-    max_training_steps: int = 40000
+    max_training_steps: int = 12000 # originally 40000
     resume_from_checkpoint: bool = False
     gradient_checkpointing: bool = True
     gradient_accumulation_steps: int = 4 # 2 originally
@@ -38,7 +38,7 @@ class TrainConfig:
 
     # Evaluation
     eval_in_epochs: bool = True
-    eval_interval: int = 500
+    eval_interval: int = 250 # originally 500
     stats_log_interval: int = 100
     use_lmms_eval: bool = False
     lmms_eval_limit: float = None

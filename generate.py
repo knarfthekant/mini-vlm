@@ -17,9 +17,9 @@ def parse_args():
         "--checkpoint", type=str, default=None,
         help="Path to a local checkpoint (directory or safetensors/pth). If omitted, we pull from HF."
     )
-    parser.add_argument("--image", type=str, default="assets/photo.jpg",
+    parser.add_argument("--image", type=str, default="assets/image.jpg",
                         help="Path to input image")
-    parser.add_argument("--prompt", type=str, default="What is this?",
+    parser.add_argument("--prompt", type=str, default="Use the horizontal line test to determine whether each of the given graphs is one-to-one.",
                         help="Text prompt to feed the model")
     parser.add_argument("--generations", type=int, default=5,
                         help="Num. of outputs to generate")
